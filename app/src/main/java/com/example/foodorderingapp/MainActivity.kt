@@ -267,35 +267,44 @@ fun FoodItemCard(
 @Composable
 fun HomeScreen() {
     val scrollState = rememberScrollState()
-    var selectedItemId by remember { mutableStateOf<String?>(null) }
     var selectedItems by remember { mutableStateOf(mutableStateListOf<String>()) }
+    var selectedFoodType by remember { mutableStateOf<String?>(null) } // Track selected food type
     val foodTypes = listOf(
         "Pizza",
         "Burger",
         "Sushi",
         "Pasta",
-        "Dessert")
-
-    val foodItems = listOf(
-        FoodItem("Hawaiian Pizza", R.drawable.hawaiian_pizza, 250, "pizza"),
-        FoodItem("Chicken Pizza", R.drawable.chicken_pizza, 220, "pizza"),
-        FoodItem("Cheese Pizza", R.drawable.cheese_pizza, 280, "pizza"),
-
+        "Dessert"
     )
 
-    var text by remember{
-        mutableStateOf("")
+    val foodItems = listOf(
+        FoodItem("Hawaiian Pizza", R.drawable.hawaiian_pizza, 250, "Pizza"),
+        FoodItem("Chicken Burger", R.drawable.chicken_burger, 135, "Burger"),
+        FoodItem("Chicken Pizza", R.drawable.chicken_pizza, 220, "Pizza"),
+        FoodItem("Beef Burger", R.drawable.beef_burger, 145, "Burger"),
+        FoodItem("Cheese Pizza", R.drawable.cheese_pizza, 280, "Pizza"),
+        FoodItem("Cheese Burger", R.drawable.cheese_burger, 120, "Burger"),
+    )
+
+    // Filter food items based on selected food type
+    val filteredFoodItems = remember(selectedFoodType) {
+        if (selectedFoodType == null) {
+            foodItems
+        } else {
+            foodItems.filter { it.foodType.equals(selectedFoodType, ignoreCase = true) }
+        }
     }
-    Surface(
-    color = Color(0xff18172c)
-    ){
+
+    var text by remember { mutableStateOf("") }
+
+    Surface(color = Color(0xff18172c)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(scrollState)
                 .padding(horizontal = 20.dp, vertical = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+        ) {
             // Your home screen content
             Column(
                 modifier = Modifier.padding(horizontal = 20.dp)
@@ -365,18 +374,24 @@ fun HomeScreen() {
                     Text(text = "Recommended", fontSize = 16.sp, color = Color.White)
                 }
             }
-            Column ( Modifier.wrapContentHeight()){
-                // Food types items
-                Row (Modifier.fillMaxWidth()) {
-                    FoodTypesItemsNavigation(foodTypes = foodTypes)
+            Column(Modifier.wrapContentHeight()) {
+                // Food types items - modified to update selectedFoodType
+                Row(Modifier.fillMaxWidth()) {
+                    FoodTypesItemsNavigation(
+                        foodTypes = foodTypes,
+                        selectedFoodType = selectedFoodType,
+                        onFoodTypeSelected = { type ->
+                            selectedFoodType = if (selectedFoodType == type) null else type
+                        }
+                    )
                 }
 
                 Row(
                     Modifier.padding(vertical = 20.dp)
-                    .wrapContentHeight()
-                ){
+                        .wrapContentHeight()
+                ) {
                     LazyRow {
-                        items(foodItems) { item ->
+                        items(filteredFoodItems) { item ->
                             FoodItemCard(
                                 foodItem = item,
                                 isSelected = selectedItems.contains(item.id),
@@ -431,31 +446,26 @@ fun HomeScreen() {
 }
 
 @Composable
-fun FoodTypesItemsNavigation(foodTypes: List<String>) {
-    val context = LocalContext.current
-    val duration = Toast.LENGTH_SHORT
-    val text = "Selected: "
-    var selectedItem by remember { mutableStateOf<String?>(foodTypes.firstOrNull()) }
-
+fun FoodTypesItemsNavigation(
+    foodTypes: List<String>,
+    selectedFoodType: String?,
+    onFoodTypeSelected: (String) -> Unit
+) {
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(horizontal = 16.dp)
     ) {
         items(foodTypes) { food ->
-            val isSelected = food == selectedItem
+            val isSelected = food == selectedFoodType
 
             FilledTonalButton(
                 colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = if (isSelected) Color(0xfffe862b) else Color(0xff18172c),
-                    contentColor = if (isSelected) Color.White else Color(0xFF838393)
+                    containerColor = if (isSelected) Color(0xfffe862b)
+                    else Color(0xff18172c),
+                    contentColor = if (isSelected) Color.White
+                    else Color(0xFF838393)
                 ),
-                onClick = {
-                    // Only allow selecting a new item
-                    if (!isSelected) {
-                        selectedItem = food
-                        Toast.makeText(context, "$text$food", duration).show()
-                    }
-                },
+                onClick = { onFoodTypeSelected(food) },
                 modifier = Modifier.padding(vertical = 4.dp)
             ) {
                 Text(food)
