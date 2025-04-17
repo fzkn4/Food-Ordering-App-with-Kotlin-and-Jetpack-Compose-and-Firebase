@@ -50,6 +50,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Text
@@ -57,6 +59,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 
 data class NavigationItems(
     val selectedIcon: ImageVector,
@@ -88,6 +93,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppContent() {
     var selectedItemIndex by remember { mutableIntStateOf(0) }
+    var selectedOrder by remember { mutableIntStateOf(0) }
     val items = listOf(
         NavigationItems(
             selectedIcon = Icons.Filled.Home,
@@ -98,7 +104,7 @@ fun AppContent() {
             selectedIcon = Icons.Filled.ShoppingCart,
             unselectedIcon = Icons.Outlined.ShoppingCart,
             hasNews = false,
-            badgeCount = 10
+            badgeCount = selectedOrder
         ),
         NavigationItems(
             selectedIcon = Icons.Filled.Settings,
@@ -233,7 +239,7 @@ fun FoodItemCard(foodId: String, imageResId: Int, price: Int) {
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 10.dp),
                 style = MaterialTheme.typography.titleLarge,
-                fontSize = 20.sp,
+                fontSize = 16.sp,
             )
         }
     }
@@ -242,6 +248,8 @@ fun FoodItemCard(foodId: String, imageResId: Int, price: Int) {
 
 @Composable
 fun HomeScreen() {
+    val scrollState = rememberScrollState()
+
     val foodTypes = listOf(
         "Pizza",
         "Burger",
@@ -265,6 +273,7 @@ fun HomeScreen() {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(scrollState)
                 .padding(horizontal = 20.dp, vertical = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -297,7 +306,11 @@ fun HomeScreen() {
                     Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 20.dp),
                 ){
                     Text(color = Color.LightGray, text = "Welcome back! User")
-                    Text(text = "What are your cravings today?", color = Color.White, fontSize = 24.sp, maxLines = 2)
+                    Text(text = "What are your cravings today?",
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        maxLines = 2,
+                        fontWeight = FontWeight.ExtraBold)
                 }
                 Row {
                     TextField(
@@ -330,15 +343,18 @@ fun HomeScreen() {
 
                 }
                 Row(Modifier.padding(top = 30.dp)){
-                    Text(text = "Available For You", fontSize = 16.sp, color = Color.White)
+                    Text(text = "Recommended", fontSize = 16.sp, color = Color.White)
                 }
             }
-            Column (){
+            Column ( Modifier.wrapContentHeight()){
                 // Food types items
-                FoodTypesItemsNavigation(foodTypes = foodTypes)
+                Row (Modifier.fillMaxWidth()) {
+                    FoodTypesItemsNavigation(foodTypes = foodTypes)
+                }
 
                 Row(
                     Modifier.padding(vertical = 20.dp)
+                    .wrapContentHeight()
                 ){
                     LazyRow {
                         items(foodItems) { item ->
@@ -351,6 +367,34 @@ fun HomeScreen() {
                     }
                 }
             }
+
+            Column (
+                Modifier.wrapContentHeight()
+            ){
+                Row (
+                    Modifier.fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.Start
+                    ){
+                    Text(text = "Most Popular", fontSize = 16.sp, color = Color.White)
+                }
+
+                Row(
+                    Modifier.padding(vertical = 20.dp)
+                        .wrapContentHeight()
+                ){
+                    LazyRow {
+                        items(foodItems) { item ->
+                            FoodItemCard(
+                                foodId = item.id,
+                                imageResId = item.imageRes,
+                                price = item.price
+                            )
+                        }
+                    }
+                }
+            }
+
         }
     }
 }
@@ -367,37 +411,28 @@ fun FoodTypesItemsNavigation(foodTypes: List<String>) {
         contentPadding = PaddingValues(horizontal = 16.dp)
     ) {
         items(foodTypes) { food ->
-            if (food == selectedItem) {
-                FilledTonalButton(
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor  = Color(0xfffe862b),
-                    ),
-                    onClick = {
-                        selectedItem = null
-                        Toast.makeText(context, "$text$food", duration).show()
-                    },
-                    modifier = Modifier.padding(vertical = 4.dp)
-                ) {
-                    Text(food)
-                }
-            } else {
-                FilledTonalButton(
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor  = Color(0xff18172c),
-                        contentColor = Color(0xFF838393)
-                    ),
-                    onClick = {
+            val isSelected = food == selectedItem
+
+            FilledTonalButton(
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = if (isSelected) Color(0xfffe862b) else Color(0xff18172c),
+                    contentColor = if (isSelected) Color.White else Color(0xFF838393)
+                ),
+                onClick = {
+                    // Only allow selecting a new item
+                    if (!isSelected) {
                         selectedItem = food
                         Toast.makeText(context, "$text$food", duration).show()
-                    },
-                    modifier = Modifier.padding(vertical = 4.dp)
-                ) {
-                    Text(food)
-                }
+                    }
+                },
+                modifier = Modifier.padding(vertical = 4.dp)
+            ) {
+                Text(food)
             }
         }
     }
 }
+
 
 
 @Composable
