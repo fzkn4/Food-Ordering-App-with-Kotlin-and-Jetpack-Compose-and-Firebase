@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,6 +52,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.FilledTonalButton
@@ -69,7 +71,13 @@ data class NavigationItems(
     val hasNews: Boolean,
     val badgeCount: Int? = null
 )
-data class FoodItem(val id: String, val imageRes: Int, val price: Int)
+data class FoodItem(val id: String, val imageRes: Int, val price: Int, val foodType: String)
+
+data class SelectedFoodItem(
+    val foodItem: FoodItem,
+    var quantity: Int = 1
+)
+
 
 class MainActivity : ComponentActivity() {
     val foodTypes : MutableList<String> = arrayListOf()
@@ -164,6 +172,7 @@ fun AppContent() {
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+
             when (selectedItemIndex) {
                 0 -> HomeScreen()
                 1 -> OrdersScreen()
@@ -174,66 +183,75 @@ fun AppContent() {
 }
 
 @Composable
-fun FoodItemCard(foodId: String, imageResId: Int, price: Int) {
+fun FoodItemCard(
+    foodItem: FoodItem,
+    isSelected: Boolean,
+    onSelectionChanged: (Boolean) -> Unit
+) {
     val context = LocalContext.current
 
     Card(
         onClick = {
+            val newSelectedState = !isSelected
+            onSelectionChanged(newSelectedState)
             Toast.makeText(
                 context,
-                "Selected: ${foodId.replaceFirstChar { it.uppercase() }}",
+                if (newSelectedState) "Selected: ${foodItem.id}"
+                else "Deselected: ${foodItem.id}",
                 Toast.LENGTH_SHORT
             ).show()
         },
         modifier = Modifier
             .size(180.dp)
-            .padding(4.dp),
+            .padding(4.dp)
+            .border(
+                width = if (isSelected) 2.dp else 0.dp,
+                color = if (isSelected) Color(0xfffe862b) else Color.Transparent,
+                shape = RoundedCornerShape(16.dp)
+            ),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color(0xff1f1e31)
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
+            // Background color
+            Box(modifier = Modifier.fillMaxSize().background(Color(0xff1f1e31)))
 
-            // Background color behind the image
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xff1f1e31)) // Change this to your desired background color
-            )
-
-            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp)){
-                Text(text = "$price ₱",
+            // Price and Add icon
+            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp)) {
+                Text(
+                    text = "${foodItem.price} ₱",
                     color = Color(0xfffe862b),
                     modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(top = 10.dp),
-                    fontWeight = FontWeight.Bold)
-                Icon(
-                    modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 10.dp),
-                    imageVector = Icons.Rounded.Add,
-                    contentDescription = "Add",
-                    tint = Color(0xfffe862b),
-
+                        .align(Alignment.TopStart)
+                        .padding(top = 10.dp),
+                    fontWeight = FontWeight.Bold
                 )
 
+                Icon(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 10.dp),
+                    imageVector = Icons.Rounded.Add,
+                    contentDescription = "Add",
+                    tint = Color(0xfffe862b)
+                )
             }
 
-            // Slightly smaller image
+            // Food image
             Image(
-                painter = painterResource(id = imageResId),
-                contentDescription = "Food image: $foodId",
-                contentScale = ContentScale.Fit, // Use Fit to avoid stretching
+                painter = painterResource(id = foodItem.imageRes),
+                contentDescription = "Food image: ${foodItem.id}",
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
-                    .fillMaxSize(0.7f) // Image takes 90% of the available size
+                    .fillMaxSize(0.7f)
                     .align(Alignment.Center)
             )
 
-            // Text overlay
+            // Food name
             Text(
-                text = foodId.replaceFirstChar { it.uppercase() },
+                text = foodItem.id.replaceFirstChar { it.uppercase() },
                 color = Color.White,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -249,7 +267,8 @@ fun FoodItemCard(foodId: String, imageResId: Int, price: Int) {
 @Composable
 fun HomeScreen() {
     val scrollState = rememberScrollState()
-
+    var selectedItemId by remember { mutableStateOf<String?>(null) }
+    var selectedItems by remember { mutableStateOf(mutableStateListOf<String>()) }
     val foodTypes = listOf(
         "Pizza",
         "Burger",
@@ -258,9 +277,9 @@ fun HomeScreen() {
         "Dessert")
 
     val foodItems = listOf(
-        FoodItem("Hawaiian Pizza", R.drawable.hawaiian_pizza, 250),
-        FoodItem("Chicken Pizza", R.drawable.chicken_pizza, 220),
-        FoodItem("Cheese Pizza", R.drawable.cheese_pizza, 280),
+        FoodItem("Hawaiian Pizza", R.drawable.hawaiian_pizza, 250, "pizza"),
+        FoodItem("Chicken Pizza", R.drawable.chicken_pizza, 220, "pizza"),
+        FoodItem("Cheese Pizza", R.drawable.cheese_pizza, 280, "pizza"),
 
     )
 
@@ -305,8 +324,8 @@ fun HomeScreen() {
                 Column (
                     Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 20.dp),
                 ){
-                    Text(color = Color.LightGray, text = "Welcome back! User")
-                    Text(text = "What are your cravings today?",
+                    Text(color = Color.LightGray, text = "Hello, User!")
+                    Text(text = "What would you like to eat",
                         color = Color.White,
                         fontSize = 24.sp,
                         maxLines = 2,
@@ -359,9 +378,15 @@ fun HomeScreen() {
                     LazyRow {
                         items(foodItems) { item ->
                             FoodItemCard(
-                                foodId = item.id,
-                                imageResId = item.imageRes,
-                                price = item.price
+                                foodItem = item,
+                                isSelected = selectedItems.contains(item.id),
+                                onSelectionChanged = { isSelected ->
+                                    if (isSelected) {
+                                        selectedItems.add(item.id)
+                                    } else {
+                                        selectedItems.remove(item.id)
+                                    }
+                                }
                             )
                         }
                     }
@@ -386,9 +411,15 @@ fun HomeScreen() {
                     LazyRow {
                         items(foodItems) { item ->
                             FoodItemCard(
-                                foodId = item.id,
-                                imageResId = item.imageRes,
-                                price = item.price
+                                foodItem = item,
+                                isSelected = selectedItems.contains(item.id),
+                                onSelectionChanged = { isSelected ->
+                                    if (isSelected) {
+                                        selectedItems.add(item.id)
+                                    } else {
+                                        selectedItems.remove(item.id)
+                                    }
+                                }
                             )
                         }
                     }
