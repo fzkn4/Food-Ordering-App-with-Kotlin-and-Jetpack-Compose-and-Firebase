@@ -8,12 +8,14 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -69,6 +71,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
+import kotlinx.coroutines.launch
 
 data class NavigationItems(
     val selectedIcon: ImageVector,
@@ -102,12 +105,12 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FoodOrderingAppTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = Color(0xFF18172C))
-                    {
-                        AppContent()
-                    }
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = Color(0xFF18172C))
+                {
+                    AppContent()
+                }
             }
         }
     }
@@ -116,7 +119,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppContent() {
     var selectedItemIndex by remember { mutableIntStateOf(0) }
-    var selectedOrder by remember { mutableIntStateOf(0) }
+    var selectedOrderItems = selectedOrderItems
     val items = listOf(
         NavigationItems(
             selectedIcon = Icons.Filled.Home,
@@ -127,7 +130,7 @@ fun AppContent() {
             selectedIcon = Icons.Filled.ShoppingCart,
             unselectedIcon = Icons.Outlined.ShoppingCart,
             hasNews = false,
-            badgeCount = selectedOrder
+            badgeCount = selectedOrderItems.size
         ),
         NavigationItems(
             selectedIcon = Icons.Filled.Settings,
@@ -139,17 +142,17 @@ fun AppContent() {
     Scaffold(
         containerColor = Color(0xFF18172C),
         bottomBar = {
-            // Wrap NavigationBar in a Box with rounded corners
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                    .background(Color(0xFF18172C)
+                    .background(
+                        Color(0xFF18172C)
                     )
             ) {
                 NavigationBar(
-                    containerColor = Color.Transparent, // Make the actual bar transparent
+                    containerColor = Color.Transparent,
                     modifier = Modifier
-                        .padding(top = 8.dp) // Add some space above the items
+                        .padding(top = 8.dp)
                 ) {
                     items.forEachIndexed { index, item ->
                         NavigationBarItem(
@@ -162,17 +165,19 @@ fun AppContent() {
                             icon = {
                                 BadgedBox(
                                     badge = {
-                                        if (item.badgeCount != null) {
-                                            Badge(
-                                                containerColor = Color(0xfffe862b),
-                                                contentColor = Color(0xff18172c)
-                                            ) {
-                                                Text(item.badgeCount.toString())
+                                        when {
+                                            item.badgeCount != null && item.badgeCount > 0 -> {
+                                                Badge(
+                                                    containerColor = Color(0xfffe862b),
+                                                    contentColor = Color(0xff18172c)
+                                                ) {
+                                                    Text(item.badgeCount.toString())
+                                                }
                                             }
-                                        } else if (item.hasNews) {
-                                            Badge(
-                                                containerColor = Color(0xfffe862b)
-                                            )
+                                            item.badgeCount == null && item.hasNews -> {
+                                                Badge(containerColor = Color(0xfffe862b))
+                                            }
+                                            else -> {}
                                         }
                                     }
                                 ) {
@@ -240,10 +245,14 @@ fun FoodItemCard(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Background color
-            Box(modifier = Modifier.fillMaxSize().background(Color(0xff1f1e31)))
+            Box(modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xff1f1e31)))
 
             // Price and Add icon
-            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp)) {
+            Box(modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp)) {
                 Text(
                     text = "${foodItem.price} ₱",
                     color = Color(0xfffe862b),
@@ -357,7 +366,9 @@ fun HomeScreen() {
                     }
                 }
                 Column (
-                    Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 20.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 20.dp, bottom = 20.dp),
                 ){
                     Text(color = Color.LightGray, text = "Hello, User!")
                     Text(text = "What would you like to eat",
@@ -390,9 +401,9 @@ fun HomeScreen() {
                         placeholder = {
                             Text(
                                 text = "Search food...",
-                                color = Color(0xFF838393)) // Add placeholder color
+                                color = Color(0xFF838393))
                         },
-                        shape = RoundedCornerShape(16.dp) // Explicit shape for consistency
+                        shape = RoundedCornerShape(16.dp)
                     )
 
                 }
@@ -413,7 +424,8 @@ fun HomeScreen() {
                 }
 
                 Row(
-                    Modifier.padding(vertical = 20.dp)
+                    Modifier
+                        .padding(vertical = 20.dp)
                         .wrapContentHeight()
                 ) {
                     LazyRow {
@@ -438,15 +450,17 @@ fun HomeScreen() {
                 Modifier.wrapContentHeight()
             ){
                 Row (
-                    Modifier.fillMaxWidth()
-                    .padding(horizontal = 20.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.Start
                     ){
                     Text(text = "Most Popular", fontSize = 16.sp, color = Color.White)
                 }
 
                 Row(
-                    Modifier.padding(top= 20.dp)
+                    Modifier
+                        .padding(top = 20.dp)
                         .wrapContentHeight()
                 ){
                     LazyRow {
@@ -464,7 +478,6 @@ fun HomeScreen() {
                             )
                         }
                     }
-
                 }
             }
 
@@ -524,76 +537,183 @@ fun SettingsScreen() {
 
 @Composable
 fun OrdersScreen() {
-    Surface(
-        color = Color(0xff18172c)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 40.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Scrollable content
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 20.dp)
-            ) {
-                items(foodItems) { item ->
-                    if (item.id in selectedOrderItems){
-                        OrderCardItem(item)
-                    }
-                }
-            }
+    val context = LocalContext.current
+    val promoCodes = setOf("EAu9099", "ASDWW001", "POkl8890")
+    val coroutineScope = rememberCoroutineScope()
+    var text by remember { mutableStateOf("") }
 
-            // Fixed bottom content (Total and Button)
+    Surface(color = Color(0xff18172c)) {
+        Box(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
+                    .fillMaxSize()
+                    .padding(top = 40.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Box(
+                // Scrollable content
+                LazyColumn(
                     modifier = Modifier
-                        .padding(vertical = 20.dp)
-                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(horizontal = 20.dp)
                 ) {
-                    Text(
-                        text = "Total",
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Start,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Text(
-                        text = "0.00 ₱",
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.End,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    items(foodItems) { item ->
+                        if (item.id in selectedOrderItems){
+                            OrderCardItem(item)
+                        }
+                    }
                 }
 
-                Button(
-                    onClick = { /* Button click action */ },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xfffe862b)
-                    ),
-                    shape = RoundedCornerShape(18.dp)
+                // Fixed bottom content
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        "Checkout",
-                        fontSize = 20.sp,
-                        modifier = Modifier.padding(vertical = 10.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 20.dp)
+                            .fillMaxWidth(),
+                    ) {
+                        TextField(
+                            singleLine = false,
+                            colors = TextFieldDefaults.colors(
+                                unfocusedContainerColor = Color(0xFF1F1E31),
+                                focusedContainerColor = Color(0xFF1F1E31),
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                                disabledIndicatorColor = Color.Transparent,
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            value = text,
+                            onValueChange = { text = it },
+                            placeholder = {
+                                Text(
+                                    text = "Promo Code",
+                                    color = Color(0xFF838393)
+                                )
+                            },
+                            shape = RoundedCornerShape(16.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Button(
+                            onClick = {
+                                coroutineScope.launch {
+                                    if (text.trim() in promoCodes) {
+                                        Toast.makeText(context, "Promo code applied successfully!", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "Invalid promo code.", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            enabled = text.isNotBlank(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xfffe862b),
+                                disabledContainerColor = Color.Transparent,
+                                disabledContentColor = Color.Gray
+                            ),
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(
+                                1.dp,
+                                if (text.isBlank()) Color.Gray else Color.Transparent
+                            ),
+                            modifier = Modifier.align(Alignment.CenterEnd)
+                                .height(IntrinsicSize.Min)
+                        ) {
+                            Text(
+                                "Apply",
+                                fontSize = 16.sp
+                            )
+                        }
+
+                    }
+
+                    // Totals section
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 20.dp)
+                            .fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Subtotal",
+                            color = Color.LightGray,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Start,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text(
+                            text = "0.00 ₱",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.End,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 10.dp)
+                            .fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Tax",
+                            color = Color.LightGray,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Start,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text(
+                            text = "0.00 ₱",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.End,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 10.dp, bottom = 20.dp)
+                            .fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Total",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Start,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text(
+                            text = "0.00 ₱",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.End,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    Button(
+                        onClick = { /* Button click action */ },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xfffe862b)
+                        ),
+                        shape = RoundedCornerShape(18.dp)
+                    ) {
+                        Text(
+                            "Checkout",
+                            fontSize = 20.sp,
+                            modifier = Modifier.padding(vertical = 10.dp)
+                        )
+                    }
                 }
             }
         }
     }
 }
+
 
 
 @Composable
@@ -604,7 +724,7 @@ fun OrderCardItem(foodItem: FoodItem) {
         ),
         modifier = Modifier
             .fillMaxWidth()
-            .height(160.dp) // Fixed height for consistency
+            .height(160.dp)
             .padding(vertical = 10.dp)
     ) {
         Row(
@@ -648,19 +768,19 @@ fun OrderCardItem(foodItem: FoodItem) {
             // Quantity Controls
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp) // Reduced spacing
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 // Quantity/status indicator
                 Surface(
-                    shape = RoundedCornerShape(8.dp), // Adjust this value for desired corner radius
-                    color = Color(0xfffe862b), // Your button color
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xfffe862b),
                     modifier = Modifier.size(34.dp)
                 ) {
                     IconButton(
                         onClick = { /* Increase quantity */ },
                         modifier = Modifier.size(28.dp),
                         colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = Color.Transparent // Make button itself transparent
+                            containerColor = Color.Transparent
                         )
                     ) {
                         Icon(
@@ -672,25 +792,25 @@ fun OrderCardItem(foodItem: FoodItem) {
                     }
                 }
                 Text(
-                    text = "1x",
+                    text = "1",
                     color = Color.White,
-                    style = MaterialTheme.typography.bodyMedium, // Smaller text
-                    modifier = Modifier.padding(vertical = 4.dp) // Reduced padding
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(vertical = 4.dp)
                 )
                 Surface(
-                    shape = RoundedCornerShape(8.dp), // Adjust this value for desired corner radius
-                    color = Color(0xfffe862b), // Your button color
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xfffe862b),
                     modifier = Modifier.size(34.dp)
                 ) {
                     IconButton(
                         onClick = { /* Increase quantity */ },
                         modifier = Modifier.size(28.dp),
                         colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = Color.Transparent // Make button itself transparent
+                            containerColor = Color.Transparent
                         )
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Add,
+                            imageVector = Icons.Default.Remove,
                             contentDescription = "Increase quantity",
                             modifier = Modifier.size(16.dp),
                             tint = Color.White
