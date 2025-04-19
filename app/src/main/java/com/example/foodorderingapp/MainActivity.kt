@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -49,6 +50,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -59,11 +62,13 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextAlign
 
 data class NavigationItems(
     val selectedIcon: ImageVector,
@@ -78,10 +83,20 @@ data class SelectedFoodItem(
     var quantity: Int = 1
 )
 
+val selectedOrderItems = mutableStateListOf<String>()
+val foodItems = listOf(
+    FoodItem("Hawaiian Pizza", R.drawable.hawaiian_pizza, 250, "Pizza"),
+    FoodItem("Chicken Burger", R.drawable.chicken_burger, 135, "Burger"),
+    FoodItem("Chicken Pizza", R.drawable.chicken_pizza, 220, "Pizza"),
+    FoodItem("Beef Burger", R.drawable.beef_burger, 145, "Burger"),
+    FoodItem("Cheese Pizza", R.drawable.cheese_pizza, 280, "Pizza"),
+    FoodItem("Cheese Burger", R.drawable.cheese_burger, 120, "Burger"),
+    FoodItem("Spaghetti", R.drawable.spaghetti, 135, "Pasta"),
+    FoodItem("Carbonara", R.drawable.carbonara, 145, "Pasta"),
+)
 
 class MainActivity : ComponentActivity() {
     val foodTypes : MutableList<String> = arrayListOf()
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -120,49 +135,59 @@ fun AppContent() {
             hasNews = true
         )
     )
-    Scaffold(
-        bottomBar = {
-            NavigationBar (
-                containerColor = Color(0xFF18172C)
-            ){
 
-                items.forEachIndexed { index, item ->
-                    NavigationBarItem(
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Color(0xfffe862b),
-                            unselectedIconColor = Color(0xff838393),
-                            selectedTextColor = Color.Transparent,
-                            indicatorColor = Color.Transparent
-                        ),
-                        icon = {
-                            BadgedBox(
-                                badge = {
-                                    if (item.badgeCount != null) {
-                                        Badge (
-                                            containerColor = Color(0xfffe862b), // Background color
-                                            contentColor = Color(0xff18172c)
-                                        ){
-                                            Text(item.badgeCount.toString()) }
-                                    } else if (item.hasNews) {
-                                        Badge(
-                                            containerColor = Color(0xfffe862b)
-                                        )
-                                    }
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = if (selectedItemIndex == index) {
-                                        item.selectedIcon
-                                    } else {
-                                        item.unselectedIcon
-                                    },
-                                    contentDescription = null
-                                )
-                            }
-                        },
-                        selected = selectedItemIndex == index,
-                        onClick = { selectedItemIndex = index }
+    Scaffold(
+        containerColor = Color(0xFF18172C),
+        bottomBar = {
+            // Wrap NavigationBar in a Box with rounded corners
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                    .background(Color(0xFF18172C)
                     )
+            ) {
+                NavigationBar(
+                    containerColor = Color.Transparent, // Make the actual bar transparent
+                    modifier = Modifier
+                        .padding(top = 8.dp) // Add some space above the items
+                ) {
+                    items.forEachIndexed { index, item ->
+                        NavigationBarItem(
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = Color(0xfffe862b),
+                                unselectedIconColor = Color(0xff838393),
+                                selectedTextColor = Color.Transparent,
+                                indicatorColor = Color.Transparent
+                            ),
+                            icon = {
+                                BadgedBox(
+                                    badge = {
+                                        if (item.badgeCount != null) {
+                                            Badge(
+                                                containerColor = Color(0xfffe862b),
+                                                contentColor = Color(0xff18172c)
+                                            ) {
+                                                Text(item.badgeCount.toString())
+                                            }
+                                        } else if (item.hasNews) {
+                                            Badge(
+                                                containerColor = Color(0xfffe862b)
+                                            )
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = if (selectedItemIndex == index) {
+                                            item.selectedIcon
+                                        } else item.unselectedIcon,
+                                        contentDescription = null
+                                    )
+                                }
+                            },
+                            selected = selectedItemIndex == index,
+                            onClick = { selectedItemIndex = index }
+                        )
+                    }
                 }
             }
         }
@@ -172,7 +197,6 @@ fun AppContent() {
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-
             when (selectedItemIndex) {
                 0 -> HomeScreen()
                 1 -> OrdersScreen()
@@ -267,7 +291,7 @@ fun FoodItemCard(
 @Composable
 fun HomeScreen() {
     val scrollState = rememberScrollState()
-    var selectedItems by remember { mutableStateOf(mutableStateListOf<String>()) }
+    val selectedItems = selectedOrderItems
     var selectedFoodType by remember { mutableStateOf<String?>(null) } // Track selected food type
     val foodTypes = listOf(
         "Pizza",
@@ -284,6 +308,8 @@ fun HomeScreen() {
         FoodItem("Beef Burger", R.drawable.beef_burger, 145, "Burger"),
         FoodItem("Cheese Pizza", R.drawable.cheese_pizza, 280, "Pizza"),
         FoodItem("Cheese Burger", R.drawable.cheese_burger, 120, "Burger"),
+        FoodItem("Spaghetti", R.drawable.spaghetti, 135, "Pasta"),
+        FoodItem("Carbonara", R.drawable.carbonara, 145, "Pasta"),
     )
 
     // Filter food items based on selected food type
@@ -420,7 +446,7 @@ fun HomeScreen() {
                 }
 
                 Row(
-                    Modifier.padding(vertical = 20.dp)
+                    Modifier.padding(top= 20.dp)
                         .wrapContentHeight()
                 ){
                     LazyRow {
@@ -438,6 +464,7 @@ fun HomeScreen() {
                             )
                         }
                     }
+
                 }
             }
 
@@ -499,17 +526,178 @@ fun SettingsScreen() {
 fun OrdersScreen() {
     Surface(
         color = Color(0xff18172c)
-    ){
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.Center,
+                .padding(top = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally
-
         ) {
-            // Your home screen content
-            Text(text = "Orders screen", color = Color.White)
+            // Scrollable content
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 20.dp)
+            ) {
+                items(foodItems) { item ->
+                    if (item.id in selectedOrderItems){
+                        OrderCardItem(item)
+                    }
+                }
+            }
+
+            // Fixed bottom content (Total and Button)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(vertical = 20.dp)
+                        .fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Total",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Start,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        text = "0.00 ₱",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                Button(
+                    onClick = { /* Button click action */ },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xfffe862b)
+                    ),
+                    shape = RoundedCornerShape(18.dp)
+                ) {
+                    Text(
+                        "Checkout",
+                        fontSize = 20.sp,
+                        modifier = Modifier.padding(vertical = 10.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun OrderCardItem(foodItem: FoodItem) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xff1f1e31),
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(160.dp) // Fixed height for consistency
+            .padding(vertical = 10.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Image on the left
+            Image(
+                painter = painterResource(id = foodItem.imageRes),
+                contentDescription = "Food image: ${foodItem.id}",
+                contentScale = ContentScale.Crop, // Changed to Crop
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(RoundedCornerShape(8.dp))
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Content on the right
+            // Food Details
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = foodItem.id.replaceFirstChar { it.uppercase() },
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                Text(
+                    text = "${foodItem.price} ₱",
+                    color = Color(0xfffe862b),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            // Quantity Controls
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp) // Reduced spacing
+            ) {
+                // Quantity/status indicator
+                Surface(
+                    shape = RoundedCornerShape(8.dp), // Adjust this value for desired corner radius
+                    color = Color(0xfffe862b), // Your button color
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    IconButton(
+                        onClick = { /* Increase quantity */ },
+                        modifier = Modifier.size(28.dp),
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = Color.Transparent // Make button itself transparent
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Increase quantity",
+                            modifier = Modifier.size(16.dp),
+                            tint = Color.White
+                        )
+                    }
+                }
+                Text(
+                    text = "1x",
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodyMedium, // Smaller text
+                    modifier = Modifier.padding(vertical = 4.dp) // Reduced padding
+                )
+                Surface(
+                    shape = RoundedCornerShape(8.dp), // Adjust this value for desired corner radius
+                    color = Color(0xfffe862b), // Your button color
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    IconButton(
+                        onClick = { /* Increase quantity */ },
+                        modifier = Modifier.size(28.dp),
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = Color.Transparent // Make button itself transparent
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Increase quantity",
+                            modifier = Modifier.size(16.dp),
+                            tint = Color.White
+                        )
+                    }
+                }
+            }
         }
     }
 }
