@@ -56,6 +56,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -72,6 +73,21 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.Immutable
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.material3.CardDefaults
+import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.rounded.Add
+
 
 data class NavigationItems(
     val selectedIcon: ImageVector,
@@ -79,7 +95,14 @@ data class NavigationItems(
     val hasNews: Boolean,
     val badgeCount: Int? = null
 )
-data class FoodItem(val id: String, val imageRes: Int, val price: Int, val foodType: String)
+
+@Immutable
+data class FoodItem(
+    val id: String,
+    val imageRes: Int,
+    val price: Int,
+    val foodType: String
+)
 
 data class SelectedFoodItem(
     val foodItem: FoodItem,
@@ -218,6 +241,7 @@ fun FoodItemCard(
     onSelectionChanged: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
+    val image = painterResource(id = foodItem.imageRes)
 
     Card(
         onClick = {
@@ -244,15 +268,20 @@ fun FoodItemCard(
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Background color
-            Box(modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xff1f1e31)))
 
-            // Price and Add icon
-            Box(modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp)) {
+            // Background color layer
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xff1f1e31))
+            )
+
+            // Price and add icon at the top
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp)
+            ) {
                 Text(
                     text = "${foodItem.price} ₱",
                     color = Color(0xfffe862b),
@@ -272,9 +301,9 @@ fun FoodItemCard(
                 )
             }
 
-            // Food image
+            // Cached Food image
             Image(
-                painter = painterResource(id = foodItem.imageRes),
+                painter = image,
                 contentDescription = "Food image: ${foodItem.id}",
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
@@ -297,8 +326,12 @@ fun FoodItemCard(
 }
 
 
+
 @Composable
 fun HomeScreen() {
+    val recommendedListState = rememberLazyListState()
+    val popularListState = rememberLazyListState()
+
     val scrollState = rememberScrollState()
     val selectedItems = selectedOrderItems
     var selectedFoodType by remember { mutableStateOf<String?>(null) } // Track selected food type
@@ -428,7 +461,7 @@ fun HomeScreen() {
                         .padding(vertical = 20.dp)
                         .wrapContentHeight()
                 ) {
-                    LazyRow {
+                    LazyRow (state = recommendedListState){
                         items(filteredFoodItems) { item ->
                             FoodItemCard(
                                 foodItem = item,
@@ -463,7 +496,7 @@ fun HomeScreen() {
                         .padding(top = 20.dp)
                         .wrapContentHeight()
                 ){
-                    LazyRow {
+                    LazyRow (state = popularListState){
                         items(foodItems) { item ->
                             FoodItemCard(
                                 foodItem = item,
@@ -491,9 +524,12 @@ fun FoodTypesItemsNavigation(
     selectedFoodType: String?,
     onFoodTypeSelected: (String) -> Unit
 ) {
+    val foodTypeListState = rememberLazyListState()
+
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp)
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        state = foodTypeListState
     ) {
         items(foodTypes) { food ->
             val isSelected = food == selectedFoodType
@@ -537,6 +573,8 @@ fun SettingsScreen() {
 
 @Composable
 fun OrdersScreen() {
+    val foodOrdersListState = rememberLazyListState()
+    val itemQuantities = remember { mutableStateMapOf<String, Int>() }
     val context = LocalContext.current
     val promoCodes = setOf("EAu9099", "ASDWW001", "POkl8890")
     val coroutineScope = rememberCoroutineScope()
@@ -554,14 +592,24 @@ fun OrdersScreen() {
                 LazyColumn(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(horizontal = 20.dp)
+                        .padding(horizontal = 20.dp),
+                    state = foodOrdersListState
                 ) {
                     items(foodItems) { item ->
-                        if (item.id in selectedOrderItems){
-                            OrderCardItem(item)
-                        }
+                    if (item.id in selectedOrderItems) {
+                        val quantity = itemQuantities.getOrPut(item.id) { 1 }
+
+                        OrderCardItem(
+                            foodItem = item,
+                            quantity = quantity,
+                            onQuantityChange = { newQty ->
+                                itemQuantities[item.id] = newQty.coerceAtLeast(1)
+                            }
+                        )
                     }
                 }
+
+            }
 
                 // Fixed bottom content
                 Column(
@@ -632,6 +680,14 @@ fun OrdersScreen() {
 
                     }
 
+                    //CALCULATIONS
+                    val subtotal = itemQuantities.entries.sumOf { (id, qty) ->
+                        val item = foodItems.find { it.id == id }
+                        (item?.price ?: 0) * qty
+                    }
+                    val tax = subtotal * 0.12
+                    val total = tax + subtotal
+
                     // Totals section
                     Box(
                         modifier = Modifier
@@ -641,17 +697,20 @@ fun OrdersScreen() {
                         Text(
                             text = "Subtotal",
                             color = Color.LightGray,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.Light,
+                            fontSize = 14.sp,
                             textAlign = TextAlign.Start,
                             modifier = Modifier.fillMaxWidth()
                         )
                         Text(
-                            text = "0.00 ₱",
+                            text = "%.2f ₱".format(subtotal.toFloat()),
                             color = Color.White,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.Light,
+                            fontSize = 14.sp,
                             textAlign = TextAlign.End,
                             modifier = Modifier.fillMaxWidth()
                         )
+
                     }
                     Box(
                         modifier = Modifier
@@ -661,14 +720,16 @@ fun OrdersScreen() {
                         Text(
                             text = "Tax",
                             color = Color.LightGray,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.Light,
+                            fontSize = 14.sp,
                             textAlign = TextAlign.Start,
                             modifier = Modifier.fillMaxWidth()
                         )
                         Text(
-                            text = "0.00 ₱",
+                            text = "%.2f ₱".format(tax.toFloat()),
                             color = Color.White,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.Light,
+                            fontSize = 14.sp,
                             textAlign = TextAlign.End,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -686,7 +747,7 @@ fun OrdersScreen() {
                             modifier = Modifier.fillMaxWidth()
                         )
                         Text(
-                            text = "0.00 ₱",
+                            text = "%.2f ₱".format(total.toFloat()),
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.End,
@@ -717,11 +778,13 @@ fun OrdersScreen() {
 
 
 @Composable
-fun OrderCardItem(foodItem: FoodItem) {
+fun OrderCardItem(
+    foodItem: FoodItem,
+    quantity: Int,
+    onQuantityChange: (Int) -> Unit
+) {
     Card(
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xff1f1e31),
-        ),
+        colors = CardDefaults.cardColors(containerColor = Color(0xff1f1e31)),
         modifier = Modifier
             .fillMaxWidth()
             .height(160.dp)
@@ -733,11 +796,10 @@ fun OrderCardItem(foodItem: FoodItem) {
                 .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Image on the left
             Image(
                 painter = painterResource(id = foodItem.imageRes),
                 contentDescription = "Food image: ${foodItem.id}",
-                contentScale = ContentScale.Crop, // Changed to Crop
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(80.dp)
                     .clip(RoundedCornerShape(8.dp))
@@ -745,11 +807,7 @@ fun OrderCardItem(foodItem: FoodItem) {
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Content on the right
-            // Food Details
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = foodItem.id.replaceFirstChar { it.uppercase() },
                     color = Color.White,
@@ -765,23 +823,19 @@ fun OrderCardItem(foodItem: FoodItem) {
                 )
             }
 
-            // Quantity Controls
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Quantity/status indicator
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = Color(0xfffe862b),
                     modifier = Modifier.size(34.dp)
                 ) {
                     IconButton(
-                        onClick = { /* Increase quantity */ },
+                        onClick = { onQuantityChange(quantity + 1) },
                         modifier = Modifier.size(28.dp),
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = Color.Transparent
-                        )
+                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Transparent)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
@@ -791,27 +845,27 @@ fun OrderCardItem(foodItem: FoodItem) {
                         )
                     }
                 }
+
                 Text(
-                    text = "1",
+                    text = quantity.toString(),
                     color = Color.White,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
+
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = Color(0xfffe862b),
                     modifier = Modifier.size(34.dp)
                 ) {
                     IconButton(
-                        onClick = { /* Increase quantity */ },
+                        onClick = { if (quantity > 1) onQuantityChange(quantity - 1) },
                         modifier = Modifier.size(28.dp),
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = Color.Transparent
-                        )
+                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Transparent)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Remove,
-                            contentDescription = "Increase quantity",
+                            contentDescription = "Decrease quantity",
                             modifier = Modifier.size(16.dp),
                             tint = Color.White
                         )
@@ -821,6 +875,7 @@ fun OrderCardItem(foodItem: FoodItem) {
         }
     }
 }
+
 
 @Preview(showBackground = true)
 @Composable
