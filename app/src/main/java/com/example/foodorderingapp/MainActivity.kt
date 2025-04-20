@@ -325,6 +325,48 @@ fun FoodItemCard(
     }
 }
 
+@Composable
+fun HeaderWithBadge() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = "Hello, User!",
+            color = Color.LightGray
+        )
+
+        NotificationIconWithBadge(badgeCount = 3)
+    }
+}
+
+
+@Composable
+fun NotificationIconWithBadge(badgeCount: Int) {
+    val context = LocalContext.current
+
+    BadgedBox(
+        badge = {
+            if (badgeCount > 0) {
+                Badge {
+                    Text(text = badgeCount.toString())
+                }
+            }
+        }
+    ) {
+        IconButton(onClick = {
+            Toast.makeText(context, "Notifications clicked!", Toast.LENGTH_SHORT).show()
+        }) {
+            Icon(
+                imageVector = Icons.Rounded.Notifications,
+                contentDescription = "Notifications",
+                tint = Color(0xFF838393)
+            )
+        }
+    }
+}
+
 
 
 @Composable
@@ -377,33 +419,14 @@ fun HomeScreen() {
             Column(
                 modifier = Modifier.padding(horizontal = 20.dp)
             ){
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(bottom = 20.dp)
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.restaurant),
-                            contentDescription = "Restaurant",
-                            modifier = Modifier.size(32.dp)
-                        )
-                        Text(
-                            text = "Grab 'n Eat",
-                            color = Color.White,
-                            modifier = Modifier.padding(start = 5.dp))
-                    }
-                }
+                // home screen header
+                HeaderWithBadge()
+
                 Column (
                     Modifier
                         .fillMaxWidth()
                         .padding(top = 20.dp, bottom = 20.dp),
                 ){
-                    Text(color = Color.LightGray, text = "Hello, User!")
                     Text(text = "What would you like to eat",
                         color = Color.White,
                         fontSize = 24.sp,
