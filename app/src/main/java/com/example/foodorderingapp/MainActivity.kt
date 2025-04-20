@@ -1,6 +1,7 @@
 package com.example.foodorderingapp
 
 import android.graphics.Paint
+import android.graphics.drawable.Icon
 import android.os.Bundle
 import android.provider.CalendarContract
 import android.service.autofill.OnClickAction
@@ -64,7 +65,6 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
@@ -87,6 +87,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.ui.Alignment
 
 
 data class NavigationItems(
@@ -225,6 +226,8 @@ fun AppContent() {
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            //goto
+//            selectedItemIndex = 2
             when (selectedItemIndex) {
                 0 -> HomeScreen()
                 1 -> OrdersScreen()
@@ -427,7 +430,7 @@ fun HomeScreen() {
                         .fillMaxWidth()
                         .padding(top = 20.dp, bottom = 20.dp),
                 ){
-                    Text(text = "What would you like to eat",
+                    Text(text = "What would you like to order today?",
                         color = Color.White,
                         fontSize = 24.sp,
                         maxLines = 2,
@@ -584,15 +587,116 @@ fun SettingsScreen() {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(40.dp),
-            verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
 
             ) {
-            // Your home screen content
-            Text(text = "Settings screen", color = Color.White)
+            // Your screen content
+            Row (
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.man),
+                    contentDescription = "user",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                )
+                Column (
+                    Modifier.padding(10.dp)
+                ) {
+
+                    Text(text = "Ezio Auditore",
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold)
+                    Text(text = "User",
+                        color = Color(0xff838393),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Light)
+                    Text(text = "Balance: 10,543.00 ₱",
+                        color = Color(0xff838393),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center)
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                val duration = Toast.LENGTH_SHORT
+                val context = LocalContext.current
+
+                ClickableUserCard(
+                    onClick = {
+                        Toast.makeText(context, "Previous Orders", duration).show()
+                    },
+                    icon = Icons.Filled.CardGiftcard,
+                    title = "Previous Orders"
+                )
+                ClickableUserCard(
+                    onClick = {
+                        Toast.makeText(context, "My Vouchers", duration).show()
+                    },
+                    icon = Icons.Filled.CardMembership,
+                    title = "My Vouchers"
+                )
+                ClickableUserCard(
+                    onClick = {
+                        Toast.makeText(context, "My Profile", duration).show()
+                    },
+                    icon = Icons.Filled.AccountCircle,
+                    title = "My Profile"
+                )
+                ClickableUserCard(
+                    onClick = {
+                        Toast.makeText(context, "Sign Out", duration).show()
+                    },
+                    icon = Icons.Filled.Logout,
+                    title = "Sign Out"
+                )
+            }
+
         }
     }
 }
+
+@Composable
+fun ClickableUserCard(onClick: () -> Unit, icon: ImageVector, title: String?) {
+    Card(
+        onClick = onClick,
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                modifier = Modifier.size(32.dp),
+                tint = Color.White
+            )
+            Text(
+                text = title.toString(),
+                color = Color(0xff838393),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Light,
+                modifier = Modifier.padding(start = 20.dp)
+            )
+        }
+    }
+}
+
 
 @Composable
 fun OrdersScreen() {
