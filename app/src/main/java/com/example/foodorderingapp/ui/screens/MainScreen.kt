@@ -1,7 +1,16 @@
 package com.example.foodorderingapp.ui.screens
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.Geocoder
+import android.location.Location
+import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -15,22 +24,24 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.CardMembership
-import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.ShoppingCart
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.ShoppingCart
+import androidx.compose.material.icons.outlined.Store
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.material3.Divider
@@ -47,19 +58,43 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import com.example.foodorderingapp.R
-import kotlinx.coroutines.launch
-// Firebase Auth import
-import com.google.firebase.auth.FirebaseAuth
-// Import User class from data package
 import com.example.foodorderingapp.data.User
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.firebase.auth.FirebaseAuth
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.rememberCameraPositionState
+import com.google.maps.android.compose.rememberMarkerState
+import com.google.android.gms.maps.model.MapStyleOptions
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import java.util.Locale
 
 data class NavigationItems(
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector,
     val hasNews: Boolean,
-    val badgeCount: Int? = null
+    val badgeCount: Int? = null,
+    val label: String
 )
 
 @Immutable
@@ -73,6 +108,22 @@ data class FoodItem(
 data class SelectedFoodItem(
     val foodItem: FoodItem,
     var quantity: Int = 1
+)
+
+data class NearbyShop(
+    val id: String,
+    val name: String,
+    val latitude: Double,
+    val longitude: Double,
+    val address: String?,
+    val distanceMeters: Float,
+    val rating: Double?,
+    val userRatingsTotal: Int?
+)
+
+private data class GeocodedLocation(
+    val address: String?,
+    val city: String?
 )
 
 // Order data class for Firebase Database
@@ -127,17 +178,26 @@ fun AppContent(navController: NavHostController, selectedOrderItems: SnapshotSta
                 selectedIcon = Icons.Filled.Home,
                 unselectedIcon = Icons.Outlined.Home,
                 hasNews = false,
+                label = "Home"
+            ),
+            NavigationItems(
+                selectedIcon = Icons.Filled.Store,
+                unselectedIcon = Icons.Outlined.Store,
+                hasNews = false,
+                label = "Shops"
             ),
             NavigationItems(
                 selectedIcon = Icons.Filled.ShoppingCart,
                 unselectedIcon = Icons.Outlined.ShoppingCart,
                 hasNews = false,
-                badgeCount = selectedOrderItems.size
+                badgeCount = selectedOrderItems.size,
+                label = "Cart"
             ),
             NavigationItems(
                 selectedIcon = Icons.Filled.Settings,
                 unselectedIcon = Icons.Outlined.Settings,
-                hasNews = true
+                hasNews = true,
+                label = "Settings"
             )
         )
     }
@@ -185,7 +245,7 @@ fun AppContent(navController: NavHostController, selectedOrderItems: SnapshotSta
                                         imageVector = if (selectedItemIndex == index) {
                                             item.selectedIcon
                                         } else item.unselectedIcon,
-                                        contentDescription = null
+                                        contentDescription = item.label
                                     )
                                 }
                             },
@@ -204,8 +264,9 @@ fun AppContent(navController: NavHostController, selectedOrderItems: SnapshotSta
         ) {
             when (selectedItemIndex) {
                 0 -> HomeScreen(selectedOrderItems)
-                1 -> OrdersScreen(selectedOrderItems)
-                2 -> SettingsScreen(navController)
+                1 -> ShopsScreen()
+                2 -> OrdersScreen(selectedOrderItems)
+                3 -> SettingsScreen(navController)
             }
         }
     }
@@ -491,6 +552,496 @@ fun FoodTypesItemsNavigation(
             ) {
                 Text(food)
             }
+        }
+    }
+}
+
+@SuppressLint("MissingPermission")
+@Composable
+fun ShopsScreen() {
+    val context = LocalContext.current
+    val activity = context as? Activity
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+    val cameraPositionState = rememberCameraPositionState()
+    val coroutineScope = rememberCoroutineScope()
+
+    val googleMapsApiKey = remember { getGoogleMapsApiKey(context) }
+
+    var permissionGranted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    var hasRequestedPermission by remember { mutableStateOf(false) }
+    var currentLocation by remember { mutableStateOf<Location?>(null) }
+    var isLocating by remember { mutableStateOf(false) }
+    var locationError by remember { mutableStateOf<String?>(null) }
+    var address by remember { mutableStateOf<String?>(null) }
+    var cityName by remember { mutableStateOf<String?>(null) }
+
+    var isFetchingShops by remember { mutableStateOf(false) }
+    var shopsError by remember { mutableStateOf<String?>(null) }
+    val nearbyShops = remember { mutableStateListOf<NearbyShop>() }
+
+    fun fetchLocation() {
+        if (!permissionGranted) return
+        loadLocation(
+            fusedLocationClient = fusedLocationClient,
+            onStart = {
+                isLocating = true
+                locationError = null
+            },
+            onSuccess = { location ->
+                isLocating = false
+                locationError = null
+                currentLocation = location
+            },
+            onFallback = {
+                isLocating = false
+                locationError = "Unable to determine your location right now."
+            },
+            onFailure = { throwable ->
+                isLocating = false
+                locationError = throwable.localizedMessage ?: "Failed to fetch your location."
+            }
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        permissionGranted = isGranted
+        if (isGranted) {
+            fetchLocation()
+        } else {
+            locationError = "Location access is needed to show the food spots near you."
+        }
+    }
+
+    val shouldShowRationale = remember(permissionGranted, hasRequestedPermission) {
+        !permissionGranted && hasRequestedPermission && activity?.let {
+            ActivityCompat.shouldShowRequestPermissionRationale(
+                it,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
+        } == true
+    }
+
+    LaunchedEffect(permissionGranted) {
+        if (permissionGranted && currentLocation == null) {
+            fetchLocation()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (!permissionGranted && !hasRequestedPermission) {
+            hasRequestedPermission = true
+            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
+
+    suspend fun updateNearbyShops(location: Location) {
+        if (googleMapsApiKey.isBlank()) {
+            shopsError = "Google Maps API key missing. Add it to the .env file and sync the project."
+            nearbyShops.clear()
+            return
+        }
+        shopsError = null
+        isFetchingShops = true
+        val result = runCatching {
+            fetchFastFoodSpots(
+                latitude = location.latitude,
+                longitude = location.longitude,
+                radiusMeters = 7000,
+                cityName = cityName,
+                apiKey = googleMapsApiKey
+            )
+        }
+        result.onSuccess { shops ->
+            nearbyShops.clear()
+            nearbyShops.addAll(shops)
+        }.onFailure { throwable ->
+            shopsError = throwable.localizedMessage ?: "Failed to load nearby shops."
+            nearbyShops.clear()
+        }
+        isFetchingShops = false
+    }
+
+    LaunchedEffect(currentLocation, googleMapsApiKey) {
+        val location = currentLocation ?: return@LaunchedEffect
+        val geocoded = geocodeLocation(context, location.latitude, location.longitude)
+        address = geocoded?.address
+        cityName = geocoded?.city
+        cameraPositionState.position = CameraPosition.fromLatLngZoom(
+            LatLng(location.latitude, location.longitude),
+            14f
+        )
+        updateNearbyShops(location)
+    }
+
+    Surface(color = Color(0xff18172c)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp, vertical = 32.dp)
+        ) {
+            Text(
+                text = "Nearby Shops",
+                color = Color.White,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Explore the fast food spots around you.",
+                color = Color(0xFF838393),
+                fontSize = 14.sp
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            when {
+                googleMapsApiKey.isBlank() -> {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "Google Maps API key not found.",
+                            color = Color.White,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Add GOOGLE_MAPS_API_KEY to the .env file and sync the project.",
+                            color = Color(0xFF838393),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                !permissionGranted -> {
+                    LocationPermissionState(
+                        shouldShowRationale = shouldShowRationale,
+                        onRequestPermission = {
+                            hasRequestedPermission = true
+                            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                        }
+                    )
+                }
+
+                isLocating -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = Color(0xfffe862b))
+                    }
+                }
+
+                locationError != null -> {
+                    LocationErrorState(
+                        message = locationError.orEmpty(),
+                        onRetry = {
+                            locationError = null
+                            fetchLocation()
+                        }
+                    )
+                }
+
+                currentLocation == null -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = Color(0xfffe862b))
+                    }
+                }
+
+                else -> {
+                    val location = currentLocation!!
+                    val userLatLng = LatLng(location.latitude, location.longitude)
+    val mapStyleOptions = remember {
+        runCatching {
+            MapStyleOptions.loadRawResourceStyle(context, R.raw.map_style_food_only)
+        }.getOrNull()
+    }
+
+    val mapProperties = MapProperties(
+        isMyLocationEnabled = permissionGranted,
+        mapStyleOptions = mapStyleOptions
+    )
+                    val mapUiSettings = MapUiSettings(
+                        myLocationButtonEnabled = true,
+                        zoomControlsEnabled = false
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                    ) {
+                        GoogleMap(
+                            modifier = Modifier.matchParentSize(),
+                            cameraPositionState = cameraPositionState,
+                            properties = mapProperties,
+                            uiSettings = mapUiSettings
+                        ) {
+                            Marker(
+                                state = rememberMarkerState(position = userLatLng),
+                                title = cityName ?: "You are here",
+                                snippet = address ?: "Current location"
+                            )
+
+                            nearbyShops.forEach { shop ->
+                                val markerLatLng = LatLng(shop.latitude, shop.longitude)
+                                val snippet = buildString {
+                                    shop.address?.let {
+                                        append(it)
+                                    }
+                                    append("\n")
+                                    append("Distance: ${formatDistance(shop.distanceMeters)}")
+                                    shop.rating?.let { rating ->
+                                        append("\nRating: ${"%.1f".format(rating)}")
+                                        shop.userRatingsTotal?.let { total ->
+                                            append(" ($total reviews)")
+                                        }
+                                    }
+                                }
+                                Marker(
+                                    state = rememberMarkerState(position = markerLatLng),
+                                    title = shop.name,
+                                    snippet = snippet
+                                )
+                            }
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(16.dp)
+                        ) {
+                            Surface(
+                                color = Color(0xCC1F1E31),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(
+                                        horizontal = 16.dp,
+                                        vertical = 12.dp
+                                    )
+                                ) {
+                                    cityName?.let { city ->
+                                        Text(
+                                            text = city,
+                                            color = Color.White,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                    }
+                                    address?.let { currentAddress ->
+                                        Text(
+                                            text = currentAddress,
+                                            color = Color(0xFF838393),
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        IconButton(
+                            onClick = { coroutineScope.launch { updateNearbyShops(location) } },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(16.dp)
+                                .size(40.dp),
+                            colors = IconButtonDefaults.iconButtonColors(
+                                containerColor = Color(0xCC1F1E31),
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = "Refresh map",
+                                tint = Color(0xfffe862b)
+                            )
+                        }
+
+                        when {
+                            shopsError != null -> {
+                                Surface(
+                                    color = Color(0xCC18172C),
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier
+                                        .align(Alignment.Center)
+                                        .padding(24.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(24.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = shopsError.orEmpty(),
+                                            color = Color.White,
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Button(
+                                            onClick = {
+                                                shopsError = null
+                                                coroutineScope.launch { updateNearbyShops(location) }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xfffe862b))
+                                        ) {
+                                            Text("Try Again")
+                                        }
+                                    }
+                                }
+                            }
+
+                            isFetchingShops -> {
+                                Box(
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .background(Color(0x6618172C)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(color = Color.White)
+                                }
+                            }
+
+                            nearbyShops.isEmpty() -> {
+                                Surface(
+                                    color = Color(0xCC18172C),
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier
+                                        .align(Alignment.Center)
+                                        .padding(24.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(24.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = "No fast food spots found yet.",
+                                            color = Color.White,
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Button(
+                                            onClick = {
+                                                coroutineScope.launch { updateNearbyShops(location) }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xfffe862b))
+                                        ) {
+                                            Text("Refresh Map")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@SuppressLint("MissingPermission")
+private fun loadLocation(
+    fusedLocationClient: com.google.android.gms.location.FusedLocationProviderClient,
+    onStart: () -> Unit,
+    onSuccess: (Location) -> Unit,
+    onFallback: () -> Unit,
+    onFailure: (Throwable) -> Unit
+) {
+    onStart()
+    val cancellationTokenSource = CancellationTokenSource()
+    fusedLocationClient
+        .getCurrentLocation(
+            Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+            cancellationTokenSource.token
+        )
+        .addOnSuccessListener { location ->
+            if (location != null) {
+                onSuccess(location)
+            } else {
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { lastLocation ->
+                        if (lastLocation != null) {
+                            onSuccess(lastLocation)
+                        } else {
+                            onFallback()
+                        }
+                    }
+                    .addOnFailureListener { throwable -> onFailure(throwable) }
+            }
+        }
+        .addOnFailureListener { throwable -> onFailure(throwable) }
+}
+
+@Composable
+private fun LocationPermissionState(
+    shouldShowRationale: Boolean,
+    onRequestPermission: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = if (shouldShowRationale) {
+                "We need your location to show nearby food spots. Please grant access in settings."
+            } else {
+                "We need your location to show nearby food spots."
+            },
+            color = Color.White,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(
+            onClick = onRequestPermission,
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xfffe862b)),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text("Grant Location Access")
+        }
+    }
+}
+
+@Composable
+private fun LocationErrorState(
+    message: String,
+    onRetry: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = message,
+            color = Color.White,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(
+            onClick = onRetry,
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xfffe862b)),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text("Try Again")
         }
     }
 }
@@ -1126,6 +1677,209 @@ private fun formatDate(timestamp: Long): String {
     val date = java.util.Date(timestamp)
     val formatter = java.text.SimpleDateFormat("MMM yyyy", java.util.Locale.getDefault())
     return formatter.format(date)
+}
+
+private fun calculateDistanceMeters(
+    originLatitude: Double,
+    originLongitude: Double,
+    targetLatitude: Double,
+    targetLongitude: Double
+): Float {
+    val results = FloatArray(1)
+    Location.distanceBetween(
+        originLatitude,
+        originLongitude,
+        targetLatitude,
+        targetLongitude,
+        results
+    )
+    return results[0]
+}
+
+private fun formatDistance(distanceMeters: Float): String {
+    return if (distanceMeters >= 1000f) {
+        "%.1f km".format(distanceMeters / 1000f)
+    } else {
+        "%.0f m".format(distanceMeters)
+    }
+}
+
+private fun getGoogleMapsApiKey(context: Context): String {
+    return try {
+        val packageManager = context.packageManager
+        val applicationInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getApplicationInfo(
+                context.packageName,
+                PackageManager.ApplicationInfoFlags.of(PackageManager.GET_META_DATA.toLong())
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getApplicationInfo(context.packageName, PackageManager.GET_META_DATA)
+        }
+        applicationInfo.metaData?.getString("com.google.android.geo.API_KEY").orEmpty()
+    } catch (exception: Exception) {
+        ""
+    }
+}
+
+private suspend fun geocodeLocation(
+    context: Context,
+    latitude: Double,
+    longitude: Double
+): GeocodedLocation? = withContext(Dispatchers.IO) {
+    try {
+        val geocoder = Geocoder(context, Locale.getDefault())
+        val results = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            geocoder.getFromLocation(latitude, longitude, 1)
+        } else {
+            @Suppress("DEPRECATION")
+            geocoder.getFromLocation(latitude, longitude, 1)
+        }
+
+        val first = results?.firstOrNull() ?: return@withContext null
+        val addressLine = first.getAddressLine(0)
+        val cityName = first.locality
+            ?.takeIf { it.isNotBlank() }
+            ?: first.subAdminArea
+            ?: first.adminArea
+
+        GeocodedLocation(address = addressLine, city = cityName)
+    } catch (_: IOException) {
+        null
+    } catch (_: IllegalArgumentException) {
+        null
+    }
+}
+
+private suspend fun fetchFastFoodSpots(
+    latitude: Double,
+    longitude: Double,
+    radiusMeters: Int,
+    cityName: String?,
+    apiKey: String
+): List<NearbyShop> = withContext(Dispatchers.IO) {
+    if (apiKey.isBlank()) {
+        throw IllegalStateException("Google Maps API key is missing.")
+    }
+
+    val encodedKeyword = URLEncoder.encode("fast food", StandardCharsets.UTF_8.name())
+    val encodedCityQuery = cityName
+        ?.takeIf { it.isNotBlank() }
+        ?.let { URLEncoder.encode("fast food in $it", StandardCharsets.UTF_8.name()) }
+
+    val shopsById = linkedMapOf<String, NearbyShop>()
+
+    suspend fun collectFromUrlBuilder(builder: (String?) -> String) {
+        var nextPageToken: String? = null
+        var pageIndex = 0
+        do {
+            val url = builder(nextPageToken)
+            val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 20000
+                readTimeout = 20000
+            }
+
+            try {
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                val root = JSONObject(response)
+                val status = root.optString("status")
+                if (status !in listOf("OK", "ZERO_RESULTS")) {
+                    val errorMessage = root.optString("error_message")
+                    throw IOException(
+                        buildString {
+                            append("Places API error: ")
+                            append(status)
+                            if (errorMessage.isNotBlank()) {
+                                append(" - ")
+                                append(errorMessage)
+                            }
+                        }
+                    )
+                }
+
+                val resultsArray = root.optJSONArray("results") ?: JSONArray()
+                for (index in 0 until resultsArray.length()) {
+                    val item = resultsArray.optJSONObject(index) ?: continue
+                    val placeId = item.optString("place_id")
+                        .takeIf { it.isNotBlank() }
+                        ?: item.optString("id").takeIf { it.isNotBlank() }
+                        ?: continue
+
+                    val geometry = item.optJSONObject("geometry")
+                        ?.optJSONObject("location")
+                        ?: continue
+                    val shopLatitude = geometry.optDouble("lat", Double.NaN)
+                    val shopLongitude = geometry.optDouble("lng", Double.NaN)
+                    if (!shopLatitude.isFinite() || !shopLongitude.isFinite()) continue
+
+                    val distance = calculateDistanceMeters(
+                        originLatitude = latitude,
+                        originLongitude = longitude,
+                        targetLatitude = shopLatitude,
+                        targetLongitude = shopLongitude
+                    )
+
+                    val ratingValue = item.optDouble("rating", Double.NaN)
+                    val rating = when {
+                        ratingValue.isNaN() || ratingValue < 0 -> null
+                        else -> ratingValue
+                    }
+                    val totalRatings = item.optInt("user_ratings_total", -1).takeIf { it >= 0 }
+
+                    val shop = NearbyShop(
+                        id = placeId,
+                        name = item.optString("name").ifBlank { "Fast food spot" },
+                        latitude = shopLatitude,
+                        longitude = shopLongitude,
+                        address = item.optString("formatted_address", item.optString("vicinity", null)),
+                        distanceMeters = distance,
+                        rating = rating,
+                        userRatingsTotal = totalRatings
+                    )
+
+                    shopsById[placeId] = shop
+                }
+
+                val token = root.optString("next_page_token", "").takeIf { it.isNotBlank() }
+                nextPageToken = if (token != null && pageIndex < 2) token else null
+                pageIndex++
+
+                if (nextPageToken != null) {
+                    delay(2000)
+                }
+
+                if (status == "ZERO_RESULTS") {
+                    nextPageToken = null
+                }
+            } finally {
+                connection.disconnect()
+            }
+        } while (nextPageToken != null && pageIndex < 3)
+    }
+
+    if (encodedCityQuery != null) {
+        collectFromUrlBuilder { pageToken ->
+            if (pageToken == null) {
+                "https://maps.googleapis.com/maps/api/place/textsearch/json?query=$encodedCityQuery&key=$apiKey"
+            } else {
+                "https://maps.googleapis.com/maps/api/place/textsearch/json?pagetoken=$pageToken&key=$apiKey"
+            }
+        }
+    }
+
+    if (shopsById.isEmpty()) {
+        val clampedRadius = radiusMeters.coerceIn(1000, 50000)
+        collectFromUrlBuilder { pageToken ->
+            if (pageToken == null) {
+                "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=$latitude,$longitude&radius=$clampedRadius&type=restaurant&keyword=$encodedKeyword&key=$apiKey"
+            } else {
+                "https://maps.googleapis.com/maps/api/place/nearbysearch/json?pagetoken=$pageToken&key=$apiKey"
+            }
+        }
+    }
+
+    shopsById.values.sortedBy { it.distanceMeters }
 }
 
 // Function to process and store the order
