@@ -1,5 +1,9 @@
 [versions]
+<<<<<<< HEAD
 agp = "8.12.3"
+=======
+agp = "8.9.0"
+>>>>>>> 6c2c400dda37c4c2120f0fcd880b0ce32640358a
 kotlin = "2.0.21"
 coreKtx = "1.16.0"
 junit = "4.13.2"
@@ -9,8 +13,11 @@ lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.10.1"
 composeBom = "2024.09.00"
 compose = "1.5.4"
+<<<<<<< HEAD
 navigationRuntimeKtx = "2.9.3"
 ui = "1.9.0"
+=======
+>>>>>>> 6c2c400dda37c4c2120f0fcd880b0ce32640358a
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -30,8 +37,11 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 
 androidx-compose-material-icons-core = { group = "androidx.compose.material", name = "material-icons-core", version.ref = "compose" }
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "compose" }
+<<<<<<< HEAD
 androidx-navigation-runtime-ktx = { group = "androidx.navigation", name = "navigation-runtime-ktx", version.ref = "navigationRuntimeKtx" }
 ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
+=======
+>>>>>>> 6c2c400dda37c4c2120f0fcd880b0ce32640358a
 
 
 [plugins]

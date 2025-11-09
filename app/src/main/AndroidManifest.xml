@@ -19,8 +19,16 @@
             android:theme="@style/Theme.FoodOrderingApp">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+<<<<<<< HEAD
+=======
+
+>>>>>>> 6c2c400dda37c4c2120f0fcd880b0ce32640358a
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
     </application>
+<<<<<<< HEAD
+=======
+
+>>>>>>> 6c2c400dda37c4c2120f0fcd880b0ce32640358a
 </manifest>
