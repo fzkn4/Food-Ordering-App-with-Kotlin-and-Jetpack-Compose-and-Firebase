@@ -107,7 +107,7 @@ data class FoodItem(
 
 data class SelectedFoodItem(
     val foodItem: FoodItem,
-    var quantity: Int = 1
+    val quantity: Int = 1
 )
 
 data class NearbyShop(
@@ -1301,7 +1301,16 @@ fun OrdersScreen(selectedOrderItems: SnapshotStateList<SelectedFoodItem>) {
                             foodItem = selectedItem.foodItem,
                             quantity = selectedItem.quantity,
                             onQuantityChange = { newQty ->
-                                selectedItem.quantity = newQty.coerceAtLeast(1)
+                                val targetIndex = selectedOrderItems.indexOfFirst { it.foodItem.id == selectedItem.foodItem.id }
+                                if (targetIndex != -1) {
+                                    val updatedQuantity = newQty.coerceAtLeast(0)
+                                    if (updatedQuantity > 0) {
+                                        selectedOrderItems[targetIndex] =
+                                            selectedOrderItems[targetIndex].copy(quantity = updatedQuantity)
+                                    } else {
+                                        selectedOrderItems.removeAt(targetIndex)
+                                    }
+                                }
                             }
                         )
                     }
@@ -1653,7 +1662,7 @@ fun OrderCardItem(
                     modifier = Modifier.size(34.dp)
                 ) {
                     IconButton(
-                        onClick = { if (quantity > 1) onQuantityChange(quantity - 1) },
+                        onClick = { onQuantityChange(quantity - 1) },
                         modifier = Modifier.size(28.dp),
                         colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Transparent)
                     ) {
